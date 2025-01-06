@@ -1,79 +1,77 @@
-# Set the working directory
-setwd("C:/Users/Orian/OneDrive/Documents/Master/semestre_3/Organization and annotation of eukaryote genomes/Intact full length LTR-RTs")
-
-# Load the necessary libraries
 library(tidyverse)
 library(data.table)
-library(cowplot)
+setwd("C:/Users/Orian/OneDrive/Documents/Master/semestre_3/Organization and annotation of eukaryote genomes/1. Intact full length LTR-RTs")
 
-# Load the annotation data
-anno_data = read.table("assembly.fasta.mod.LTR.intact.raw.gff3", header = FALSE, sep = "\t")
+# Load the data
+anno_data=read.table("assembly.fasta.mod.LTR.intact.raw.gff3",header=F,sep="\t")
+head(anno_data)
+# Get the classification table
+classification=fread("assembly.fasta.mod.LTR.intact.raw.fa.anno.list")
 
-# Load the classification data
-classification = fread("assembly.fasta.mod.LTR.intact.raw.fa.anno.list")
+## NOTE:
+# Or get the file by running the following command in bash:
+# TEsorter assembly.fasta.mod.EDTA.raw/assembly.fasta.mod.LTR.intact.fa -db rexdb-plant
+# It will be named as assembly.fasta.mod.LTR.intact.fa.rexdb-plant.cls.tsv
+# Then run the following command in R:
+# classification=fread("assembly.fasta.mod.EDTA.raw/assembly.fasta.mod.LTR.intact.fa.rexdb-plant.cls.tsv")
 
-# Rename the first column in the classification data
-names(classification)[1] = "TE"
+head(classification)
+# Separate first column into two columns at "#", name the columns "Name" and "Classification"
+names(classification)[1]="TE"
+classification=classification%>%separate(TE,into=c("Name","Classification"),sep="#")
 
-# Split the 'TE' column into 'Name' and 'Classification'
-classification = classification %>%
-  separate(TE, into = c("Name", "Classification"), sep = "#")
 
-# Filter to only keep relevant LTR-RTs and remove unwanted features
-# Check the types of annotations available
-print(table(anno_data$V3))
+# Check the superfamilies present in the GFF3 file, and their counts
+anno_data$V3 %>% table()
 
-# Remove unnecessary rows
-anno_data_filtered = anno_data[!anno_data$V3 %in% c("long_terminal_repeat", "repeat_region", "target_site_duplication"), ]
+# Filter the data to select only TE superfamilies, (long_terminal_repeat, repeat_region and target_site_duplication are features of TE)
+anno_data_filtered <- anno_data[!anno_data$V3 %in% c("long_terminal_repeat","repeat_region","target_site_duplication"), ]
+nrow(anno_data_filtered)
+# QUESTION: How Many TEs are there in the annotation file?
 
-# Create a list to extract relevant info from column 9
-anno_data_filtered$named_lists = lapply(anno_data_filtered$V9, function(line) {
+# Check the Clades present in the GFF3 file, and their counts
+# select the feature column V9 and get the Name and Identity of the TE
+anno_data_filtered$named_lists <- lapply(anno_data_filtered$V9, function(line) {
   setNames(
     sapply(strsplit(strsplit(line, ";")[[1]], "="), `[`, 2),
     sapply(strsplit(strsplit(line, ";")[[1]], "="), `[`, 1)
   )
 })
 
-# Extract the 'Name' and 'Identity' from the named lists
-anno_data_filtered$Name = unlist(lapply(anno_data_filtered$named_lists, function(x) x["Name"]))
-anno_data_filtered$Identity = unlist(lapply(anno_data_filtered$named_lists, function(x) x["ltr_identity"]))
+anno_data_filtered$Name <- unlist(lapply(anno_data_filtered$named_lists, function(x) {
+  x["Name"]
+}))
 
-# Calculate the length of the LTR-RT
-anno_data_filtered$length = anno_data_filtered$V5 - anno_data_filtered$V4
+anno_data_filtered$Identity <-unlist(lapply(anno_data_filtered$named_lists, function(x) {
+  x["ltr_identity"]
+}) )
 
-# Select the important columns for the analysis
-anno_data_filtered = anno_data_filtered %>%
-  select(V1, V4, V5, V3, Name, Identity, length)
+anno_data_filtered$length <- anno_data_filtered$V5 - anno_data_filtered$V4
 
-# Merge the filtered annotation data with the classification data
-anno_data_filtered_classified = merge(anno_data_filtered, classification, by = "Name", all.x = TRUE)
+anno_data_filtered =anno_data_filtered %>%select(V1,V4,V5,V3,Name,Identity,length) 
+head(anno_data_filtered)
 
-# Print how many clades are present
-print(table(anno_data_filtered_classified$Clade))
+# Merge the classification table with the annotation data
+anno_data_filtered_classified=merge(anno_data_filtered,classification,by="Name",all.x=T)
 
-# Convert Identity to numeric for plotting
-anno_data_filtered_classified$Identity = as.numeric(as.character(anno_data_filtered_classified$Identity))
+table(anno_data_filtered_classified$Superfamily)
+# QUESTION: Most abundant superfamilies are?
 
-# Convert Clade to factor for easier plotting
-anno_data_filtered_classified$Clade = as.factor(anno_data_filtered_classified$Clade)
+table(anno_data_filtered_classified$Clade)
+# QUESTION: Most abundant clades are?
 
-# Create a list to hold plots for each clade
-plots = list()
-
-# Loop over each unique clade and create a histogram for each
-for (clade in unique(anno_data_filtered_classified$Clade)) {
-  # Filter data for the current clade
-  data = anno_data_filtered_classified[anno_data_filtered_classified$Clade == clade, ]
-  
-  # Only create a plot if there is data for the clade
-  if (nrow(data) > 0) {
-    plots[[clade]] = ggplot(data, aes(x = Identity)) +
-      geom_histogram(binwidth = 0.01, fill = sample(colors(), 1), color = "black", alpha = 0.7) +
-      scale_x_continuous(limits = c(0.8, 1), breaks = seq(0.8, 1, 0.05)) +
-      ggtitle(clade) +
-      theme_minimal()
-  }
+for(clade in c("Alesia", "Angela", "CRM", "SIRE", "TAR", "Tekay", "Retand")) {
+  anno_data_filtered_classified <- anno_data_filtered_classified[anno_data_filtered_classified$Clade != clade, ]
 }
 
-# Display all plots in R
-plot_grid(plotlist = plots, ncol = 2)
+# Create plots for each clade
+plot_cl= ggplot(anno_data_filtered_classified[anno_data_filtered_classified$Superfamily!="unknown",], aes(x = Identity)) +
+        geom_histogram(color="black", fill="#FC8D62")+
+        facet_grid(Clade ~ Superfamily) +  
+        cowplot::theme_cowplot()
+
+
+pdf("01_full-length-LTR-RT-clades.pdf",height=20)
+plot(plot_cl)
+dev.off()
+
