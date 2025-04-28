@@ -4,4 +4,4 @@ Scripts from 01 to 03 compute some statistics about the reads, 02 also trimm the
 ## Annotation
 Script 13 perfomrs the annotation of TEs using EDTA (13_1, 13_2, and 13_3 analyse the results). Script 14 perfomrs the gene annotation. Scripts 20 to 29 are used to assess the quality of the annotation
 
-### For more info, look at the [report](https://github.com/lieselty/assembly-annotation-course/blob/main/Report_Assembly_Annotation_Oriane_Kopp.pdf)
+### For more info, look at the [report](https://github.com/lieselty/assembly-annotation-course/blob/main/Report_Assembly_Annotation_Oriane_Kopp.pdf)!
